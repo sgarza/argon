@@ -95,7 +95,21 @@ Todo.Model.Task.hasOne({
     targetProperty : 'taskId'
 });
 
-Todo.Model.Task.all(function (tasks) {
-  console.log(tasks.length);
+Todo.Model.Task.all(function (err, tasks) {
+    if (err) {
+        // Do something with the error
+        console.error(error)
+    } else {
+        console.log(tasks.length);
+    }
+});
+
+Todo.Model.Task.find(1, function (err, tasks) {
+    if (err) {
+        // Do something with the error
+        console.error(error)
+    } else {
+        console.log(tasks.length);
+    }
 });
 ```
