@@ -203,6 +203,7 @@ Module(Argon, 'Model').includes(CustomEventSupport, ValidationSupport)({
         // TODO: Verify this
         // callback(null, model)
         callback(err, model);
+      });
     }
   }
 });
