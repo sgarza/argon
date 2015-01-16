@@ -6,323 +6,332 @@ The implementation is not really coupled with Argon but it was designed to be us
 **/
 Class(Argon.Storage, 'Local')({
 
+  /**
+  Holds the list of processors that will be running to format and sanitize the response
+  returned from the JSON service provider.
+
+  All the processors must be synchronous for now so make sure that the return values are the result
+  of the processed data.
+
+  Example: A simple attribute sanitizer.
+
+    Argon.Storage.JsonRest.processors.push(function(data){
+      var sanitizedData, property;
+
+      sanitizedData = {};
+
+      for (property in data) {
+        if (data.hasOwnProperty(property)) {
+            sanitizedData[property.camelize()] = data[property];
+        }
+      }
+
+      return sanitizedData;
+    });
+
+  Example: Using the instantiator utility.
+
+    Argon.Storage.JsonRest.processors.push(function(data){
+      var instantiator = new Instantiator({
+        classNamespace : Argon.TestModel
+      });
+
+      return instantiator.instantiateResult(data);
+    });
+
+  @attribute processors <public, static> [Array] ([])
+
+  @todo support asynchronous processors (still not sure if this is actually needed)
+  **/
+  processors : [],
+
+  /**
+  Holds the list of preprocessors that will run to format, sanitize the data before sending
+  it to the storage service.
+
+  All the preprocessors must be synchronous for now so make sure that the return values are
+  the intended results.
+
+  Example : A simple dasherizer
+
+    Argon.Storage.JsonRest.processors.push(function(data){
+      var sanitizedData, property;
+
+      sanitizedData = {};
+
+      for (property in data) {
+        if (data.hasOwnProperty(property)) {
+          sanitizedData[property.dasherize()] = data[property];
+        }
+      }
+
+      return sanitizedData;
+    });
+
+  **/
+  preprocessors : [],
+
+  /**
+  Instance properties container
+  @attribute prototype <public> [Object]
+  @prototype
+  **/
+  prototype : {
     /**
-    Holds the list of processors that will be running to format and sanitize the response
-    returned from the JSON service provider.
-
-    All the processors must be synchronous for now so make sure that the return values are the result
-    of the processed data.
-
-    Example: A simple attribute sanitizer.
-
-        Argon.Storage.JsonRest.processors.push(function(data){
-            var sanitizedData, property;
-
-            sanitizedData = {};
-
-            for (property in data) {
-                if (data.hasOwnProperty(property)) {
-                    sanitizedData[property.camelize()] = data[property];
-                }
-            }
-
-            return sanitizedData;
-        });
-
-    Example: Using the instantiator utility.
-
-        Argon.Storage.JsonRest.processors.push(function(data){
-            var instantiator = new Instantiator({
-                classNamespace : Argon.TestModel
-            });
-
-            return instantiator.instantiateResult(data);
-        });
-
-    @attribute processors <public, static> [Array] ([])
-
-    @todo support asynchronous processors (still not sure if this is actually needed)
+    Contains the data for the storage instance
+    @attribute storage <pubic> [Object] (null) This changes as soon as init runs, this is to avoid
+    confussion and overrite the prototoype object.
     **/
-    processors : [],
+    storage : null,
 
     /**
-    Holds the list of preprocessors that will run to format, sanitize the data before sending
-    it to the storage service.
-
-    All the preprocessors must be synchronous for now so make sure that the return values are
-    the intended results.
-
-    Example : A simple dasherizer
-
-        Argon.Storage.JsonRest.processors.push(function(data){
-            var sanitizedData, property;
-
-            sanitizedData = {};
-
-            for (property in data) {
-                if (data.hasOwnProperty(property)) {
-                    sanitizedData[property.dasherize()] = data[property];
-                }
-            }
-
-            return sanitizedData;
-        });
-
+    Holds the processors that are specific only for the instance of the storage
+    @property processors <public> [Array] (null)
     **/
-    preprocessors : [],
+    processors : null,
 
     /**
-    Instance properties container
-    @attribute prototype <public> [Object]
-    @prototype
+    Holds the preprocessors that are specific only for the instance of the storage
+    @property preprocessors <public> [Array] (null)
     **/
-    prototype : {
-        /**
-        Contains the data for the storage instance
-        @attribute storage <pubic> [Object] (null) This changes as soon as init runs, this is to avoid
-        confussion and overrite the prototoype object.
-        **/
-        storage : null,
-        
-        /**
-        Holds the processors that are specific only for the instance of the storage
-        @property processors <public> [Array] (null)
-        **/
-        processors : null,
+    preprocessors : null,
 
-        /**
-        Holds the preprocessors that are specific only for the instance of the storage
-        @property preprocessors <public> [Array] (null)
-        **/
-		preprocessors : null,
-        
-        /**
-        Initializes the instance
-        @method init <public>
-        @return this
-        **/
-        init    : function init(config) {
-            this.storage = {};
-            if (typeof config !== 'unefined') {
-                Object.keys(function (property) {
-                    this[property] = config[property];
-                }, this);
-            }
+    /**
+    Initializes the instance
+    @method init <public>
+    @return this
+    **/
+    init    : function init(config) {
+      this.storage = {};
 
-            if(this.processors instanceof Array === false){
-                this.processors = [].concat(this.constructor.processors);
-            }
-			if(this.preprocessors instanceof Array === false){
-                this.preprocessors = [].concat(this.constructor.preprocessors);
-            }
-        },
-        
-        /**
-        Creates new data on the storage instance
-        @method post <public>
-        @argument data <required> [Object] the data to create on the storage instance
-        @argument callback [Function] The function that will be executed when the process ends
-        @return [Array]
-        **/
-        create    : function create(requestObj, callback) {
-           
-            var storage = this;
+      if (typeof config !== 'unefined') {
+        Object.keys(function (property) {
+          this[property] = config[property];
+        }, this);
+      }
 
-            callback = callback || function defaultPostCallback() {
-                //setup Error Notification here
-            };
-            
-            if ((typeof requestObj) === 'undefined' || requestObj === null) {
-               callback();
-               return this;
-            }
-            
-            requestObj.data.id = this._generateUid();
+      if(this.processors instanceof Array === false){
+        this.processors = [].concat(this.constructor.processors);
+      }
 
-			for (i = 0; i < storage.preprocessors.length; i++) {
-                requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
-            }
-            this.storage[requestObj.data.id] = requestObj.data;
-            
-            var data = this.storage[requestObj.data.id];            
+      if(this.preprocessors instanceof Array === false){
+        this.preprocessors = [].concat(this.constructor.preprocessors);
+      }
+    },
 
-            for (i = 0; i < storage.processors.length; i++) {
-                data = storage.processors[i](data);
-            }
-            callback(data);
-            
-            return this;
-        },
-        
-        /**
-        Retrieves a set of data on the storage instance
-        @method get <public>
-        @argument query <required> [Object] the query to the elements that must be updated
-        @argument callback [Function] The function that will be executed when the process ends
-        @return [Array]
-        **/
-        find : function find(requestObj, callback) {
-            var found, storedData, property;
+    /**
+    Creates new data on the storage instance
+    @method post <public>
+    @argument data <required> [Object] the data to create on the storage instance
+    @argument callback [Function] The function that will be executed when the process ends
+    @return [Array]
+    **/
+    create    : function create(requestObj, callback) {
+      var storage = this;
 
-            var storage = this;
-            
-            callback = callback || function defaultGetCallback() {
-                //nothing here maybe put error notification
-            };
-            
-			for (i = 0; i < storage.preprocessors.length; i++) {
-                requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
-            }
+      callback = callback || function defaultPostCallback() {
+        throw new Error('callback is undefined');
+      };
 
-            if ((typeof requestObj) === 'undefined' || requestObj === null) {
-               callback(null);
-               return this;
-            }
-            
-            found      = [];
-            storedData = this.storage;
+      if ((typeof requestObj) === 'undefined' || requestObj === null) {
+        callback('requestObj is undefined');
+        return this;
+      }
 
-            Object.keys(storedData).forEach(function (property) {
-                found.push(storedData[property]);
-            });
+      requestObj.data.id = this._generateUid();
 
-            var data = found; 
-            
-            for (i = 0; i < storage.processors.length; i++) {
-                data = storage.processors[i](data, requestObj);
-            }
-            callback(data);
-            
-            return this;
-        },
+      for (i = 0; i < storage.preprocessors.length; i++) {
+        requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
+      }
 
-        /**
-        Reads from the resource
-        @method get <public>
-        @argument requestObj <optional> [Object] ({data : {}, query : {}, request : {url : '/'}})
-        @argument callback <optional> [Function]
-        **/
-        findOne : function findOne(requestObj, callback) {
-            var data;
-            var storage = this;
+      this.storage[requestObj.data.id] = requestObj.data;
 
-			for (i = 0; i < storage.preprocessors.length; i++) {
-                requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
-            }
+      var data = this.storage[requestObj.data.id];
 
-            data = Object.keys(this.storage).filter(function (property) {
-                return requestObj.params.id === this.storage[property].id;
-            }, this);
-            
-            data = this.storage[data[0]];
+      for (i = 0; i < storage.processors.length; i++) {
+        data = storage.processors[i](data);
+      }
 
-            for (i = 0; i < storage.processors.length; i++) {
-                data = storage.processors[i](data, requestObj);
-            }
-            callback(data);
+      callback(null, data);
 
-            return this;
-        },
+      return this;
+    },
 
-        /**
-        Updates a set of data on the storage instance
-        @method put <public>
-        @argument query <required> [Object] the query to the elements that must be updated
-        @argument callback [Function] The function that will be executed when the process ends
-        @return [Object] this
-        **/
-        update : function update(requestObj, callback) {
-            var storage = this;            
-            callback = callback || function defaultPutCallBack() {
-                //setup Error notification
-            };
-            
-            if ((typeof requestObj) === 'undefined' || requestObj === null) {
-               callback(null);
-               return this;
-            }
-            
-            if (requestObj.data) {
-                for (i = 0; i < storage.preprocessors.length; i++) {
-                    requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
-                }
-            }
-            
-            this.storage[requestObj.data.id] = requestObj.data;
-            
-            var data = this.storage[requestObj.data.id];            
+    /**
+    Retrieves a set of data on the storage instance
+    @method get <public>
+    @argument query <required> [Object] the query to the elements that must be updated
+    @argument callback [Function] The function that will be executed when the process ends
+    @return [Array]
+    **/
+    find : function find(requestObj, callback) {
+      var found, storedData, property;
 
-            for (i = 0; i < storage.processors.length; i++) {
-                data = storage.processors[i](data, requestObj);
-            }
-            callback(data);
-        },
-        
-        /**
-        Removes a set of elements from the storage
-        @method remove <public>
-        @argument query <required> [Object] the query to the elements that must be removed
-        @argument callback [Function] The function that will be executed when the process ends
-        @return [Object] this
-        **/
-        remove  : function remove(requestObj, callback) {
-            var storageInstance = this;
-            var storage = this;
-            
-            callback = callback || function defaultRemoveCallBack() {
-                //setup Error Notification
-            };
-            
-            if ((typeof requestObj) === 'undefined' || requestObj === null) {
-               callback(null);
-               return this;
-            }
+      var storage = this;
 
-            if (requestObj.data) {
-                for (i = 0; i < storage.preprocessors.length; i++) {
-                    requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
-                }
-            }
-            
-            if (requestObj.data && requestObj.data.id) {
-                delete storageInstance.storage[requestObj.data.id];
-            }
+      callback = callback || function defaultGetCallback() {
+        throw new Error('callback is undefined');
+      };
 
-            callback(null);
-            
-            return this;
-        },
+      for (i = 0; i < storage.preprocessors.length; i++) {
+        requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
+      }
 
-        /**
-        Generates a hexadecimal hash-like string based on Math.random.
-        
-        Declaration notice. This abstraction may seem a lil weird because codes could be part of the class
-        but this way you dont have to pollute the class with the implementation of the generation algorithm.
-        
-        The math trick to get integers was taken from 
-        https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Math/random#Example.3a_Using_Math.random
-        
-        @method _generateUid <private>
-        @argument length <required> [Number] (32) The length of the generated string
-        @return [String]
-        **/
-        _generateUid : (function generateUid() {
-            var getUid = function(length){
-                var i, uid, min, max;
-                
-                length = length || 32;
-                uid = '';
-                min = 0;
-                max = 14;
-                for(i = 0; i < length; i++){
-                    uid += getUid.codes[ Math.floor(Math.random() * (max - min + 1)) + min ];
-                }
-                return uid;
-            };
+      if ((typeof requestObj) === 'undefined' || requestObj === null) {
+        callback('requestObj is undefined');
+        return this;
+      }
 
-            getUid.codes  = [0, 1, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f'];
-            
-            return getUid;
-        }())
-    }
+      found      = [];
+      storedData = this.storage;
+
+      Object.keys(storedData).forEach(function (property) {
+        found.push(storedData[property]);
+      });
+
+      var data = found;
+
+      for (i = 0; i < storage.processors.length; i++) {
+        data = storage.processors[i](data, requestObj);
+      }
+
+      callback(null, data);
+
+      return this;
+    },
+
+    /**
+    Reads from the resource
+    @method get <public>
+    @argument requestObj <optional> [Object] ({data : {}, query : {}, request : {url : '/'}})
+    @argument callback <optional> [Function]
+    **/
+    findOne : function findOne(requestObj, callback) {
+      var data;
+      var storage = this;
+
+      for (i = 0; i < storage.preprocessors.length; i++) {
+        requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
+      }
+
+      data = Object.keys(this.storage).filter(function (property) {
+        return requestObj.params.id === this.storage[property].id;
+      }, this);
+
+      data = this.storage[data[0]];
+
+      for (i = 0; i < storage.processors.length; i++) {
+        data = storage.processors[i](data, requestObj);
+      }
+
+      callback(null, data);
+
+      return this;
+    },
+
+    /**
+    Updates a set of data on the storage instance
+    @method put <public>
+    @argument query <required> [Object] the query to the elements that must be updated
+    @argument callback [Function] The function that will be executed when the process ends
+    @return [Object] this
+    **/
+    update : function update(requestObj, callback) {
+      var storage = this;
+
+      callback = callback || function defaultPutCallBack() {
+        throw new Error('callback is undefined');
+      };
+
+      if ((typeof requestObj) === 'undefined' || requestObj === null) {
+        callback('requestObj is undefined');
+        return this;
+      }
+
+      if (requestObj.data) {
+        for (i = 0; i < storage.preprocessors.length; i++) {
+          requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
+        }
+      }
+
+      this.storage[requestObj.data.id] = requestObj.data;
+
+      var data = this.storage[requestObj.data.id];
+
+      for (i = 0; i < storage.processors.length; i++) {
+        data = storage.processors[i](data, requestObj);
+      }
+
+      callback(null, data);
+    },
+
+    /**
+    Removes a set of elements from the storage
+    @method remove <public>
+    @argument query <required> [Object] the query to the elements that must be removed
+    @argument callback [Function] The function that will be executed when the process ends
+    @return [Object] this
+    **/
+    remove  : function remove(requestObj, callback) {
+      var storageInstance = this;
+      var storage = this;
+
+      callback = callback || function defaultRemoveCallBack() {
+        throw new Error('callback is undefined');
+      };
+
+      if ((typeof requestObj) === 'undefined' || requestObj === null) {
+        callback('requestObj is undefined');
+        return this;
+      }
+
+      if (requestObj.data) {
+        for (i = 0; i < storage.preprocessors.length; i++) {
+          requestObj.data = storage.preprocessors[i](requestObj.data, requestObj);
+        }
+      }
+
+      if (requestObj.data && requestObj.data.id) {
+        delete storageInstance.storage[requestObj.data.id];
+      }
+
+      callback(null, requestObj.data);
+
+      return this;
+    },
+
+    /**
+    Generates a hexadecimal hash-like string based on Math.random.
+
+    Declaration notice. This abstraction may seem a lil weird because codes could be part of the class
+    but this way you dont have to pollute the class with the implementation of the generation algorithm.
+
+    The math trick to get integers was taken from
+    https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Math/random#Example.3a_Using_Math.random
+
+    @method _generateUid <private>
+    @argument length <required> [Number] (32) The length of the generated string
+    @return [String]
+    **/
+    _generateUid : (function generateUid() {
+      var getUid = function(length){
+        var i, uid, min, max;
+
+        length = length || 32;
+        uid = '';
+        min = 0;
+        max = 14;
+
+        for(i = 0; i < length; i++){
+          uid += getUid.codes[ Math.floor(Math.random() * (max - min + 1)) + min ];
+        }
+
+        return uid;
+      };
+
+      getUid.codes  = [0, 1, 3, 4, 5, 6, 7, 8, 9, 'a', 'b', 'c', 'd', 'e', 'f'];
+
+      return getUid;
+    }())
+  }
 });

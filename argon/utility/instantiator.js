@@ -18,7 +18,7 @@ Class("Instantiator")({
     @argument config <required> [Object] {undefined} configuration object
     **/
     init : function init(config) {
-      this.classNamespace = config.classNamespace || window;
+      this.classNamespace = config.classNamespace || global;
       return this;
     },
 
@@ -33,36 +33,35 @@ Class("Instantiator")({
     @return object
     **/
     instantiate : function instantiate(element) {
-        var property, i, result, className;
-        
-        className = Object.prototype.toString.call(element).replace('[object ', '').replace(']', '');
-        
-        if ('Array' === className) {
-            result = [];
+      var property, i, result, className;
 
-            for(i = 0; i < element.length; i++) {
-                result.push(this.instantiate(element[i]));
-            }
-        }
-        else if ( 'Object' === className ) {
-            element = this.camelizeProperties(element);
-            
-            result = {};
-            for(property in element) {
-                if (element.hasOwnProperty(property)) {
-                    result[property] = this.instantiate(element[property]);
-                }
-            }
+      className = Object.prototype.toString.call(element).replace('[object ', '').replace(']', '');
 
-            if (result.hasOwnProperty('_className') && this.classNamespace[result._className]) {
-                result = new this.classNamespace[result._className](result);
-            }
+      if ('Array' === className) {
+        result = [];
+
+        for(i = 0; i < element.length; i++) {
+          result.push(this.instantiate(element[i]));
         }
-        else {
-            result = element;
+      } else if ( 'Object' === className ) {
+        element = this.camelizeProperties(element);
+
+        result = {};
+
+        for(property in element) {
+          if (element.hasOwnProperty(property)) {
+            result[property] = this.instantiate(element[property]);
+          }
         }
-        
-        return result;
+
+        if (result.hasOwnProperty('_className') && this.classNamespace[result._className]) {
+          result = new this.classNamespace[result._className](result);
+        }
+      } else {
+        result = element;
+      }
+
+      return result;
     },
 
     /**
@@ -72,17 +71,17 @@ Class("Instantiator")({
     @return object
     **/
     camelizeProperties : function camelizeProperties(element) {
-        var properties = {};
-        var keyName;
-        for(var key in element) {
-            if (element.hasOwnProperty(key)) {
-                keyName = key.toString().camelize();
-                properties[keyName] = element[key];
-            }
+      var properties = {};
+      var keyName;
+      for(var key in element) {
+        if (element.hasOwnProperty(key)) {
+          keyName = key.toString().camelize();
+          properties[keyName] = element[key];
         }
-        return properties;
-    }
+      }
 
+      return properties;
+    }
   }
 });
 
